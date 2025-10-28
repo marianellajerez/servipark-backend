@@ -23,4 +23,7 @@ public class TipoVehiculo extends Auditable {
 
     @Column(length = 50, nullable = false, unique = true)
     private String nombre;
+
+    @Column(nullable = false)
+    private boolean activo = true;
 }

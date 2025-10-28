@@ -36,4 +36,7 @@ public class Usuario extends Auditable {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_rol", nullable = false, foreignKey = @ForeignKey(name = "FK_USUARIO_ROL"))
     private Rol rol;
+
+    @Column(nullable = false)
+    private boolean activo = true;
 }
