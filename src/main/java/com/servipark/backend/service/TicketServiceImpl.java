@@ -6,6 +6,9 @@ import com.servipark.backend.model.Usuario;
 import com.servipark.backend.model.Vehiculo;
 import com.servipark.backend.repository.TicketRepository;
 import com.servipark.backend.repository.UsuarioRepository;
+import com.servipark.backend.exception.ConflictoDeDatosException;
+import com.servipark.backend.exception.RecursoNoEncontradoException;
+import com.servipark.backend.exception.ReglaNegocioException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,7 +54,7 @@ public class TicketServiceImpl implements TicketService {
     @Transactional
     public Ticket registrarSalida(Long idTicket, Long idUsuario) {
         Ticket ticket = obtenerTicketActivoOrThrow(idTicket);
-        Usuario usuario = obtenerUsuarioActivoOrThrow(idUsuario); // Valida el usuario que cierra
+        Usuario usuario = obtenerUsuarioActivoOrThrow(idUsuario);
         LocalDateTime ahora = LocalDateTime.now();
         long minutos = calcularMinutosEstacionamiento(ticket.getFechaIngreso(), ahora);
         double valorTotal = calcularValorTotal(ticket.getTarifa(), minutos);
@@ -71,25 +74,32 @@ public class TicketServiceImpl implements TicketService {
         return ticketRepository.findByFechaSalidaBetween(inicio, fin);
     }
 
-    private void validarTicketNoActivo(Vehiculo vehiculo) {
+    void validarTicketNoActivo(Vehiculo vehiculo) {
         Optional<Ticket> ticketActivoOpt = ticketRepository.findByVehiculoAndFechaSalidaIsNull(vehiculo);
         if (ticketActivoOpt.isPresent()) {
-            throw new RuntimeException("Error: El vehículo con placa " + vehiculo.getPlaca() + " ya tiene un ticket activo.");
+            throw new ConflictoDeDatosException(
+                    "ticket.error.vehiculo.yaActivo", vehiculo.getPlaca()
+            );
         }
     }
 
-    private Usuario obtenerUsuarioActivoOrThrow(Long idUsuario) {
+    Usuario obtenerUsuarioActivoOrThrow(Long idUsuario) {
         return usuarioRepository.findByIdUsuarioAndActivoTrue(idUsuario)
-                .orElseThrow(() -> new RuntimeException("Error: Usuario no encontrado o inactivo con ID: " + idUsuario));
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "ticket.error.usuario.noEncontradoOInactivo", idUsuario
+                ));
     }
 
-    private Tarifa obtenerTarifaVigenteOrThrow(Vehiculo vehiculo, LocalDateTime fecha) {
+    Tarifa obtenerTarifaVigenteOrThrow(Vehiculo vehiculo, LocalDateTime fecha) {
         return tarifaService.findTarifaVigente(vehiculo.getTipoVehiculo().getIdTipoVehiculo(), fecha)
-                .orElseThrow(() -> new RuntimeException("Error: No se encontró tarifa vigente para el tipo de vehículo "
-                        + vehiculo.getTipoVehiculo().getNombre() + " en la fecha " + fecha));
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "ticket.error.tarifa.noVigente",
+                        vehiculo.getTipoVehiculo().getNombre(),
+                        fecha.toString()
+                ));
     }
 
-    private Ticket crearYGuardarTicketIngreso(Vehiculo vehiculo, Usuario usuario, Tarifa tarifa, LocalDateTime fechaIngreso) {
+    Ticket crearYGuardarTicketIngreso(Vehiculo vehiculo, Usuario usuario, Tarifa tarifa, LocalDateTime fechaIngreso) {
         Ticket nuevoTicket = new Ticket();
         nuevoTicket.setVehiculo(vehiculo);
         nuevoTicket.setUsuario(usuario);
@@ -100,11 +110,16 @@ public class TicketServiceImpl implements TicketService {
         return ticketRepository.save(nuevoTicket);
     }
 
-    private Ticket obtenerTicketActivoOrThrow(Long idTicket) {
+    Ticket obtenerTicketActivoOrThrow(Long idTicket) {
         Ticket ticket = ticketRepository.findById(idTicket)
-                .orElseThrow(() -> new RuntimeException("Error: Ticket no encontrado con ID: " + idTicket));
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "ticket.error.ticket.noEncontrado", idTicket
+                ));
+
         if (ticket.getFechaSalida() != null) {
-            throw new RuntimeException("Error: El ticket con ID " + idTicket + " ya ha sido cerrado.");
+            throw new ReglaNegocioException(
+                    "ticket.error.ticket.yaCerrado", idTicket
+            );
         }
         return ticket;
     }
@@ -121,9 +136,9 @@ public class TicketServiceImpl implements TicketService {
         return Math.max(0, minutosExactos);
     }
 
-    private double calcularValorTotal(Tarifa tarifa, long minutos) {
+    double calcularValorTotal(Tarifa tarifa, long minutos) {
         if (tarifa == null) {
-            throw new RuntimeException("Error: No se puede calcular el valor total sin una tarifa.");
+            throw new ReglaNegocioException("ticket.error.tarifa.nula");
         }
         BigDecimal valorPorMinuto = BigDecimal.valueOf(tarifa.getValorPorMinuto());
         BigDecimal minutosBD = BigDecimal.valueOf(minutos);
@@ -132,7 +147,7 @@ public class TicketServiceImpl implements TicketService {
         return valorTotalBD.doubleValue();
     }
 
-    private Ticket actualizarYGuardarTicketSalida(Ticket ticket, LocalDateTime fechaSalida, double valorTotal) {
+    Ticket actualizarYGuardarTicketSalida(Ticket ticket, LocalDateTime fechaSalida, double valorTotal) {
         ticket.setFechaSalida(fechaSalida);
         ticket.setValorTotal(valorTotal);
         return ticketRepository.save(ticket);

@@ -4,6 +4,9 @@ import com.servipark.backend.model.Tarifa;
 import com.servipark.backend.model.TipoVehiculo;
 import com.servipark.backend.repository.TarifaRepository;
 import com.servipark.backend.repository.TipoVehiculoRepository;
+import com.servipark.backend.exception.RecursoNoEncontradoException;
+import com.servipark.backend.exception.ReglaNegocioException;
+import com.servipark.backend.exception.ConflictoDeDatosException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,10 +18,15 @@ import java.util.Optional;
 @Service
 public class TarifaServiceImpl implements TarifaService {
 
+    private final TarifaRepository tarifaRepository;
+    private final TipoVehiculoRepository tipoVehiculoRepository;
+
     @Autowired
-    private TarifaRepository tarifaRepository;
-    @Autowired
-    private TipoVehiculoRepository tipoVehiculoRepository;
+    public TarifaServiceImpl(TarifaRepository tarifaRepository,
+                             TipoVehiculoRepository tipoVehiculoRepository) {
+        this.tarifaRepository = tarifaRepository;
+        this.tipoVehiculoRepository = tipoVehiculoRepository;
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -35,38 +43,54 @@ public class TarifaServiceImpl implements TarifaService {
     @Override
     @Transactional
     public Tarifa save(Tarifa nuevaTarifa, Long idTipoVehiculo) {
-        TipoVehiculo tipoVehiculo = tipoVehiculoRepository.findById(idTipoVehiculo)
-                .filter(TipoVehiculo::isActivo)
-                .orElseThrow(() -> new RuntimeException("Error: Tipo de Vehículo activo no encontrado con ID: " + idTipoVehiculo));
-        nuevaTarifa.setTipoVehiculo(tipoVehiculo);
+        TipoVehiculo tipoVehiculo = obtenerTipoVehiculoActivo(idTipoVehiculo);
+        validarDatosNuevaTarifa(nuevaTarifa);
+        cerrarTarifaVigenteSiProcede(tipoVehiculo, nuevaTarifa.getFechaInicio());
 
+        nuevaTarifa.setTipoVehiculo(tipoVehiculo);
+        nuevaTarifa.setIdTarifa(null);
+        return tarifaRepository.save(nuevaTarifa);
+    }
+
+    private TipoVehiculo obtenerTipoVehiculoActivo(Long idTipoVehiculo) {
+        return tipoVehiculoRepository.findById(idTipoVehiculo)
+                .filter(TipoVehiculo::isActivo)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "tarifa.error.tipoVehiculo.noEncontrado.id", idTipoVehiculo
+                ));
+    }
+
+    private void validarDatosNuevaTarifa(Tarifa nuevaTarifa) {
         if (nuevaTarifa.getFechaInicio() == null || nuevaTarifa.getValorPorMinuto() <= 0) {
-            throw new RuntimeException("Fecha de inicio y valor por minuto positivo son requeridos.");
+            throw new ReglaNegocioException("tarifa.error.validacion.camposRequeridos");
         }
         if (nuevaTarifa.getFechaFin() != null && nuevaTarifa.getFechaFin().isBefore(nuevaTarifa.getFechaInicio())) {
-            throw new RuntimeException("La fecha fin no puede ser anterior a la fecha inicio.");
+            throw new ReglaNegocioException("tarifa.error.validacion.fechaFinInvalida");
         }
+    }
 
+    private void cerrarTarifaVigenteSiProcede(TipoVehiculo tipoVehiculo, LocalDateTime fechaInicioNueva) {
         Optional<Tarifa> tarifaActualOpt = tarifaRepository.findByTipoVehiculoAndFechaFinIsNull(tipoVehiculo);
 
         if (tarifaActualOpt.isPresent()) {
             Tarifa tarifaActual = tarifaActualOpt.get();
-            if (!nuevaTarifa.getFechaInicio().isAfter(tarifaActual.getFechaInicio())) {
-                throw new RuntimeException("La fecha de inicio de la nueva tarifa debe ser posterior a la fecha de inicio de la tarifa actual.");
+
+            if (!fechaInicioNueva.isAfter(tarifaActual.getFechaInicio())) {
+                throw new ConflictoDeDatosException("tarifa.error.conflicto.fechaInicio");
             }
-            tarifaActual.setFechaFin(nuevaTarifa.getFechaInicio().minus(1, ChronoUnit.SECONDS));
+
+            tarifaActual.setFechaFin(fechaInicioNueva.minus(1, ChronoUnit.SECONDS));
             tarifaRepository.save(tarifaActual);
         }
-
-        nuevaTarifa.setIdTarifa(null);
-        return tarifaRepository.save(nuevaTarifa);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Optional<Tarifa> findTarifaVigente(Long idTipoVehiculo, LocalDateTime fecha) {
         TipoVehiculo tipoVehiculo = tipoVehiculoRepository.findById(idTipoVehiculo)
-                .orElseThrow(() -> new RuntimeException("Error: Tipo de Vehículo no encontrado."));
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "tarifa.error.tipoVehiculo.noEncontrado"
+                ));
         return tarifaRepository.findTarifaVigente(tipoVehiculo, fecha);
     }
 }

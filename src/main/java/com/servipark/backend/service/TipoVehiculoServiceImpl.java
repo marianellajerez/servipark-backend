@@ -4,7 +4,7 @@ import com.servipark.backend.model.Tarifa;
 import com.servipark.backend.model.TipoVehiculo;
 import com.servipark.backend.repository.TarifaRepository;
 import com.servipark.backend.repository.TipoVehiculoRepository;
-import com.servipark.backend.repository.VehiculoRepository;
+import com.servipark.backend.exception.ConflictoDeDatosException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,14 +15,15 @@ import java.util.Optional;
 @Service
 public class TipoVehiculoServiceImpl implements TipoVehiculoService {
 
-    @Autowired
-    private TipoVehiculoRepository tipoVehiculoRepository;
+    private final TipoVehiculoRepository tipoVehiculoRepository;
+    private final TarifaRepository tarifaRepository;
 
     @Autowired
-    private VehiculoRepository vehiculoRepository;
-
-    @Autowired
-    private TarifaRepository tarifaRepository;
+    public TipoVehiculoServiceImpl(TipoVehiculoRepository tipoVehiculoRepository,
+                                   TarifaRepository tarifaRepository) {
+        this.tipoVehiculoRepository = tipoVehiculoRepository;
+        this.tarifaRepository = tarifaRepository;
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -40,7 +41,9 @@ public class TipoVehiculoServiceImpl implements TipoVehiculoService {
     @Transactional
     public TipoVehiculo save(TipoVehiculo tipoVehiculo) {
         if (tipoVehiculoRepository.existsByNombreAndActivoTrue(tipoVehiculo.getNombre())) {
-            throw new RuntimeException("Error: Ya existe un tipo de vehículo activo con el nombre '" + tipoVehiculo.getNombre() + "'.");
+            throw new ConflictoDeDatosException(
+                    "tipoVehiculo.error.conflicto.nombreExistente", tipoVehiculo.getNombre()
+            );
         }
         tipoVehiculo.setActivo(true);
         return tipoVehiculoRepository.save(tipoVehiculo);
@@ -50,9 +53,14 @@ public class TipoVehiculoServiceImpl implements TipoVehiculoService {
     @Transactional
     public Optional<TipoVehiculo> update(Long id, TipoVehiculo tipoVehiculoDetails) {
         return tipoVehiculoRepository.findById(id).map(existingTipo -> {
-            if (!existingTipo.getNombre().equalsIgnoreCase(tipoVehiculoDetails.getNombre()) &&
-                    tipoVehiculoRepository.existsByNombreAndActivoTrue(tipoVehiculoDetails.getNombre())) {
-                throw new RuntimeException("Error: Ya existe otro tipo de vehículo activo con el nombre '" + tipoVehiculoDetails.getNombre() + "'.");
+
+            boolean isNameChanging = !existingTipo.getNombre().equalsIgnoreCase(tipoVehiculoDetails.getNombre());
+            boolean newNameExists = tipoVehiculoRepository.existsByNombreAndActivoTrue(tipoVehiculoDetails.getNombre());
+
+            if (isNameChanging && newNameExists) {
+                throw new ConflictoDeDatosException(
+                        "tipoVehiculo.error.conflicto.nombreExistente", tipoVehiculoDetails.getNombre()
+                );
             }
             existingTipo.setNombre(tipoVehiculoDetails.getNombre());
             return tipoVehiculoRepository.save(existingTipo);
@@ -69,6 +77,7 @@ public class TipoVehiculoServiceImpl implements TipoVehiculoService {
                 tarifaActiva.setFechaFin(LocalDateTime.now());
                 tarifaRepository.save(tarifaActiva);
             }
+
             tipo.setActivo(false);
             tipoVehiculoRepository.save(tipo);
             return true;
