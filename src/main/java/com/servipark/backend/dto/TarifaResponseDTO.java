@@ -1,4 +1,4 @@
 package com.servipark.backend.dto;
 
-public class TarifaRequest {
+public class TarifaResponseDTO {
 }
