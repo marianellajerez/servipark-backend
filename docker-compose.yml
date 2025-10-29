@@ -1,35 +1,36 @@
+version: '3.8'
 services:
+  app-servipark:
+    build: .
+    container_name: app-servipark
+    restart: unless-stopped
+    depends_on:
+      - db-mysql
+    ports:
+      - "8080:8080"
+    environment:
+      # Propiedades Datasource (se resuelven automáticamente con el prefijo SPRING_DATASOURCE)
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
+
+      # CORRECCIÓN: Mapeamos explícitamente la variable de entorno (del .env)
+      # a la propiedad interna de Spring que tu código @Value está buscando.
+      - jwt.secret=${JWT_SECRET_KEY}
 
   db-mysql:
     image: mysql:8.0
     container_name: db-mysql
-    restart: always
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: rootpass
-      MYSQL_DATABASE: servipark_db
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     ports:
       - "3307:3306"
     volumes:
-      - mysql-data:/var/lib/mysql
-    healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  app-servipark:
-    container_name: app-servipark
-    build: .
-    restart: always
-    ports:
-      - "8080:8080"
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://db-mysql:3306/servipark_db?useSSL=false&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=rootpass
-    depends_on:
-      db-mysql:
-        condition: service_healthy
+      - servipark-mysql-data:/var/lib/mysql
 
 volumes:
-  mysql-data:
+  servipark-mysql-data:
