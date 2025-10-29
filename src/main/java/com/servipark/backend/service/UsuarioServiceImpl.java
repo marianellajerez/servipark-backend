@@ -4,10 +4,10 @@ import com.servipark.backend.model.Rol;
 import com.servipark.backend.model.Usuario;
 import com.servipark.backend.repository.RolRepository;
 import com.servipark.backend.repository.UsuarioRepository;
-// Importamos las excepciones personalizadas
 import com.servipark.backend.exception.ConflictoDeDatosException;
 import com.servipark.backend.exception.RecursoNoEncontradoException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -16,14 +16,17 @@ import java.util.Optional;
 @Service
 public class UsuarioServiceImpl implements UsuarioService {
 
-    // Inyección por constructor (SOLID-D)
     private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Autowired
-    public UsuarioServiceImpl(UsuarioRepository usuarioRepository, RolRepository rolRepository) {
+    public UsuarioServiceImpl(UsuarioRepository usuarioRepository,
+                              RolRepository rolRepository,
+                              PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -51,6 +54,8 @@ public class UsuarioServiceImpl implements UsuarioService {
 
         usuario.setRol(rol);
         usuario.setActivo(true);
+        usuario.setContrasena(passwordEncoder.encode(usuario.getContrasena()));
+
         return usuarioRepository.save(usuario);
     }
 
@@ -74,8 +79,9 @@ public class UsuarioServiceImpl implements UsuarioService {
         existingUser.setCorreo(usuarioDetails.getCorreo());
 
         if (usuarioDetails.getContrasena() != null && !usuarioDetails.getContrasena().isEmpty()) {
-            // Aquí debería ir la lógica de ENCRIPTACIÓN de la contraseña
-            existingUser.setContrasena(usuarioDetails.getContrasena());
+            existingUser.setContrasena(
+                    passwordEncoder.encode(usuarioDetails.getContrasena())
+            );
         }
 
         Rol rol = obtenerRolOThrow(idRol);
