@@ -106,7 +106,7 @@ public class TarifaController {
     public ResponseEntity<?> createTarifa(@Valid @RequestBody TarifaCreateDTO createDTO) {
         try {
             Tarifa savedTarifa = tarifaService.save(createDTO);
-            
+
             return ResponseEntity.status(HttpStatus.CREATED).body(mapToResponse(savedTarifa));
 
         } catch (RecursoNoEncontradoException ex) {
