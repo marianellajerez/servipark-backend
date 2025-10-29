@@ -5,8 +5,8 @@ import com.servipark.backend.model.TipoVehiculo;
 import com.servipark.backend.repository.TarifaRepository;
 import com.servipark.backend.repository.TipoVehiculoRepository;
 import com.servipark.backend.exception.RecursoNoEncontradoException;
-import com.servipark.backend.exception.ReglaNegocioException;
 import com.servipark.backend.exception.ConflictoDeDatosException;
+import com.servipark.backend.dto.TarifaCreateDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,15 +40,23 @@ public class TarifaServiceImpl implements TarifaService {
         return tarifaRepository.findById(id);
     }
 
+    /**
+     * Implementa la lógica de reemplazo: establece la fechaInicio a LocalDateTime.now(),
+     * cierra la tarifa anterior (si existe) y crea la nueva tarifa como vigente.
+     */
     @Override
     @Transactional
-    public Tarifa save(Tarifa nuevaTarifa, Long idTipoVehiculo) {
-        TipoVehiculo tipoVehiculo = obtenerTipoVehiculoActivo(idTipoVehiculo);
-        validarDatosNuevaTarifa(nuevaTarifa);
-        cerrarTarifaVigenteSiProcede(tipoVehiculo, nuevaTarifa.getFechaInicio());
-
+    public Tarifa save(TarifaCreateDTO createDTO) {
+        TipoVehiculo tipoVehiculo = obtenerTipoVehiculoActivo(createDTO.idTipoVehiculo());
+        LocalDateTime fechaInicioNueva = LocalDateTime.now();
+        cerrarTarifaVigenteSiProcede(tipoVehiculo, fechaInicioNueva);
+        Tarifa nuevaTarifa = new Tarifa();
+        nuevaTarifa.setValorPorMinuto(createDTO.valorPorMinuto());
+        nuevaTarifa.setFechaInicio(fechaInicioNueva); // Fecha generada por la aplicación
         nuevaTarifa.setTipoVehiculo(tipoVehiculo);
         nuevaTarifa.setIdTarifa(null);
+        nuevaTarifa.setFechaFin(null); // La nueva tarifa siempre es VIGENTE al inicio
+
         return tarifaRepository.save(nuevaTarifa);
     }
 
@@ -60,23 +68,23 @@ public class TarifaServiceImpl implements TarifaService {
                 ));
     }
 
-    private void validarDatosNuevaTarifa(Tarifa nuevaTarifa) {
-        if (nuevaTarifa.getFechaInicio() == null || nuevaTarifa.getValorPorMinuto() <= 0) {
-            throw new ReglaNegocioException("tarifa.error.validacion.camposRequeridos");
-        }
-        if (nuevaTarifa.getFechaFin() != null && nuevaTarifa.getFechaFin().isBefore(nuevaTarifa.getFechaInicio())) {
-            throw new ReglaNegocioException("tarifa.error.validacion.fechaFinInvalida");
-        }
-    }
-
+    /**
+     * Regla de Negocio CLAVE: Cierra la tarifa actualmente VIGENTE (fechaFin = NULL)
+     * para el TipoVehiculo dado, si existe.
+     * * Se valida que la nueva fecha de inicio sea posterior a la anterior.
+     */
     private void cerrarTarifaVigenteSiProcede(TipoVehiculo tipoVehiculo, LocalDateTime fechaInicioNueva) {
         Optional<Tarifa> tarifaActualOpt = tarifaRepository.findByTipoVehiculoAndFechaFinIsNull(tipoVehiculo);
 
         if (tarifaActualOpt.isPresent()) {
             Tarifa tarifaActual = tarifaActualOpt.get();
 
+            // Validación de Regla de Negocio: La nueva tarifa debe ser cronológicamente posterior.
             if (!fechaInicioNueva.isAfter(tarifaActual.getFechaInicio())) {
-                throw new ConflictoDeDatosException("tarifa.error.conflicto.fechaInicio");
+                throw new ConflictoDeDatosException(
+                        "tarifa.error.conflicto.fechaInicio",
+                        "La fecha de inicio de la nueva tarifa debe ser estrictamente posterior a la fecha de inicio de la tarifa vigente actual."
+                );
             }
 
             tarifaActual.setFechaFin(fechaInicioNueva.minus(1, ChronoUnit.SECONDS));
