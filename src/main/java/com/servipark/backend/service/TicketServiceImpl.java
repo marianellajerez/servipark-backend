@@ -84,7 +84,8 @@ public class TicketServiceImpl implements TicketService {
     }
 
     Usuario obtenerUsuarioActivoOrThrow(Long idUsuario) {
-        return usuarioRepository.findByIdUsuarioAndActivoTrue(idUsuario)
+        return usuarioRepository.findById(idUsuario)
+                .filter(Usuario::isActivo)
                 .orElseThrow(() -> new RecursoNoEncontradoException(
                         "ticket.error.usuario.noEncontradoOInactivo", idUsuario
                 ));
