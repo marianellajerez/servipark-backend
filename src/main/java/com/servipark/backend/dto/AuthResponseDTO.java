@@ -1,4 +1,6 @@
 package com.servipark.backend.dto;
 
-public class AuthResponseDTO {
+public record AuthResponseDTO(
+        String token
+) {
 }
