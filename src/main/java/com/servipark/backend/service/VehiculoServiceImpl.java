@@ -2,13 +2,16 @@ package com.servipark.backend.service;
 
 import com.servipark.backend.model.TipoVehiculo;
 import com.servipark.backend.model.Vehiculo;
+import com.servipark.backend.model.Ticket;
 import com.servipark.backend.repository.TipoVehiculoRepository;
 import com.servipark.backend.repository.VehiculoRepository;
+import com.servipark.backend.repository.TicketRepository; // Necesitas este repo aquí
 import com.servipark.backend.exception.RecursoNoEncontradoException;
 import com.servipark.backend.exception.ReglaNegocioException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -16,12 +19,15 @@ public class VehiculoServiceImpl implements VehiculoService {
 
     private final VehiculoRepository vehiculoRepository;
     private final TipoVehiculoRepository tipoVehiculoRepository;
+    private final TicketRepository ticketRepository; // Inyección de TicketRepository
 
     @Autowired
     public VehiculoServiceImpl(VehiculoRepository vehiculoRepository,
-                               TipoVehiculoRepository tipoVehiculoRepository) {
+                               TipoVehiculoRepository tipoVehiculoRepository,
+                               TicketRepository ticketRepository) {
         this.vehiculoRepository = vehiculoRepository;
         this.tipoVehiculoRepository = tipoVehiculoRepository;
+        this.ticketRepository = ticketRepository; // Se necesita para la nueva funcionalidad
     }
 
     @Override
@@ -46,6 +52,8 @@ public class VehiculoServiceImpl implements VehiculoService {
         }
         return vehiculoRepository.findByPlaca(placaFormateada);
     }
+
+    // ELIMINADO: findAllTicketsByPlaca ya no está aquí, debe ir en TicketServiceImpl.
 
     private String formatPlaca(String placa) {
         if (placa == null) return null;

@@ -28,11 +28,11 @@ public class TipoVehiculoController {
      * Convierte una entidad TipoVehiculo a un TipoVehiculoResponseDTO.
      */
     private TipoVehiculoResponseDTO mapToResponse(TipoVehiculo tipoVehiculo) {
-        TipoVehiculoResponseDTO response = new TipoVehiculoResponseDTO();
-        response.setIdTipoVehiculo(tipoVehiculo.getIdTipoVehiculo());
-        response.setNombre(tipoVehiculo.getNombre());
-        response.setActivo(tipoVehiculo.isActivo());
-        return response;
+        return new TipoVehiculoResponseDTO(
+                tipoVehiculo.getIdTipoVehiculo(),
+                tipoVehiculo.getNombre(),
+                tipoVehiculo.isActivo()
+        );
     }
 
     /**

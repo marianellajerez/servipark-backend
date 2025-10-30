@@ -1,18 +1,16 @@
 package com.servipark.backend.dto;
 
-import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * DTO utilizado para devolver la información detallada de una Tarifa,
- * incluyendo sus fechas de vigencia y el tipo de vehículo asociado.
+ * DTO de Respuesta para la entidad Tarifa.
+ * Implementado como un record para asegurar la inmutabilidad.
  */
-@Data
-public class TarifaResponseDTO {
-    private Long idTarifa;
-    private Double valorPorMinuto;
-    private LocalDateTime fechaInicio;
-    private LocalDateTime fechaFin;
-    private Long idTipoVehiculo;
-    private String nombreTipoVehiculo;
-}
+public record TarifaResponseDTO(
+        Long idTarifa,
+        Double valorPorMinuto,
+        LocalDateTime fechaInicio,
+        LocalDateTime fechaFin,
+        Long idTipoVehiculo,
+        String nombreTipoVehiculo
+) {}

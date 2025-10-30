@@ -1,13 +1,11 @@
 package com.servipark.backend.dto;
 
-import lombok.Data;
-
 /**
- * DTO para enviar información de un TipoVehiculo al cliente.
+ * DTO de Respuesta para la entidad TipoVehiculo.
+ * Implementado como un record para asegurar la inmutabilidad.
  */
-@Data
-public class TipoVehiculoResponseDTO {
-    private Long idTipoVehiculo;
-    private String nombre;
-    private boolean activo;
-}
+public record TipoVehiculoResponseDTO(
+        Long idTipoVehiculo,
+        String nombre,
+        boolean activo
+) {}

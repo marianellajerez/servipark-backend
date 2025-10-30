@@ -9,10 +9,14 @@ public interface TicketService {
 
     Ticket registrarIngreso(String placa, Long idTipoVehiculo, Long idUsuario);
 
-    Ticket registrarSalida(Long idTicket, Long idUsuario);
+    Ticket registrarSalida(String placa, Long idUsuario);
 
     Optional<Ticket> findActiveTicketByPlaca(String placa);
 
     List<Ticket> findTicketsCerradosEntreFechas(LocalDateTime inicio, LocalDateTime fin);
+
+    List<Ticket> findAllTicketsByPlaca(String placa);
+
+    Optional<Ticket> findById(Long idTicket);
 
 }

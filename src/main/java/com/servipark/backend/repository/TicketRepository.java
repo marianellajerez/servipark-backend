@@ -21,4 +21,5 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
 
     List<Ticket> findByVehiculo_TipoVehiculo_IdTipoVehiculoAndFechaSalidaBetween(Long idTipoVehiculo, LocalDateTime fechaInicio, LocalDateTime fechaFin);
 
+    List<Ticket> findByVehiculo(Vehiculo vehiculo);
 }

@@ -57,7 +57,7 @@ public class DataSeeder implements CommandLineRunner {
         crearAdminSiNoExiste(adminRol);
     }
 
-    private void crearAdminSiNoExiste(Rol adminRol) {
+    private void  crearAdminSiNoExiste(Rol adminRol) {
         if (!usuarioRepository.existsByCorreoAndActivoTrue(ADMIN_EMAIL)) {
             Usuario admin = new Usuario();
             admin.setNombre(ADMIN_NOMBRE);

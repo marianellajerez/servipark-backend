@@ -30,19 +30,15 @@ public class TarifaController {
      * Convierte una entidad Tarifa a un TarifaResponseDTO.
      */
     private TarifaResponseDTO mapToResponse(Tarifa tarifa) {
-        TarifaResponseDTO response = new TarifaResponseDTO();
-        response.setIdTarifa(tarifa.getIdTarifa());
-        response.setValorPorMinuto(tarifa.getValorPorMinuto());
-        response.setFechaInicio(tarifa.getFechaInicio());
-        response.setFechaFin(tarifa.getFechaFin());
-
-        if (tarifa.getTipoVehiculo() != null) {
-            response.setIdTipoVehiculo(tarifa.getTipoVehiculo().getIdTipoVehiculo());
-            response.setNombreTipoVehiculo(tarifa.getTipoVehiculo().getNombre());
-        }
-        return response;
+        return new TarifaResponseDTO(
+                tarifa.getIdTarifa(),
+                tarifa.getValorPorMinuto(),
+                tarifa.getFechaInicio(),
+                tarifa.getFechaFin(),
+                tarifa.getTipoVehiculo() != null ? tarifa.getTipoVehiculo().getIdTipoVehiculo() : null,
+                tarifa.getTipoVehiculo() != null ? tarifa.getTipoVehiculo().getNombre() : null
+        );
     }
-
 
     /**
      * [GET] Obtiene todas las tarifas históricas y vigentes.

@@ -1,25 +1,20 @@
 package com.servipark.backend.dto;
 
 import com.servipark.backend.model.Usuario;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-public class UsuarioResponseDTO {
-
-    private Long id;
-    private String nombre;
-    private String correo;
-    private String rol;
-    private boolean activo;
-
+/**
+ * DTO de Respuesta para la entidad Usuario.
+ * Implementado como un record para asegurar la inmutabilidad.
+ */
+public record UsuarioResponseDTO(
+        Long id,
+        String nombre,
+        String correo,
+        String rol,
+        boolean activo
+) {
     /**
-     * Método helper para convertir fácilmente una entidad Usuario
+     * Método helper estático para convertir fácilmente una entidad Usuario
      * a un DTO de respuesta de Usuario.
      */
     public static UsuarioResponseDTO from(Usuario usuario) {

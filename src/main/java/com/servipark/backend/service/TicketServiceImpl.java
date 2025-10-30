@@ -28,6 +28,9 @@ public class TicketServiceImpl implements TicketService {
     private final VehiculoService vehiculoService;
     private final TarifaService tarifaService;
 
+    // Constante de la Regla de Negocio
+    private static final long MINUTOS_COBRO_MINIMO = 30;
+
     @Autowired
     public TicketServiceImpl(TicketRepository ticketRepository,
                              UsuarioRepository usuarioRepository,
@@ -38,6 +41,15 @@ public class TicketServiceImpl implements TicketService {
         this.vehiculoService = vehiculoService;
         this.tarifaService = tarifaService;
     }
+
+    // AGREGADO: Para soportar GET /tickets/{id} en el controlador.
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Ticket> findById(Long idTicket) {
+        return ticketRepository.findById(idTicket);
+    }
+
+    // --- Métodos de Transacción ---
 
     @Override
     @Transactional
@@ -52,14 +64,27 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     @Transactional
-    public Ticket registrarSalida(Long idTicket, Long idUsuario) {
-        Ticket ticket = obtenerTicketActivoOrThrow(idTicket);
-        Usuario usuario = obtenerUsuarioActivoOrThrow(idUsuario);
+    public Ticket registrarSalida(String placa, Long idUsuario) {
+        obtenerUsuarioActivoOrThrow(idUsuario);
+
+        Vehiculo vehiculo = vehiculoService.findByPlaca(placa)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "vehiculo.error.placa.noEncontrada", placa
+                ));
+
+        Ticket ticket = ticketRepository.findByVehiculoAndFechaSalidaIsNull(vehiculo)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "ticket.error.ticket.noActivoParaPlaca", placa
+                ));
+
         LocalDateTime ahora = LocalDateTime.now();
         long minutos = calcularMinutosEstacionamiento(ticket.getFechaIngreso(), ahora);
         double valorTotal = calcularValorTotal(ticket.getTarifa(), minutos);
+
         return actualizarYGuardarTicketSalida(ticket, ahora, valorTotal);
     }
+
+    // --- Métodos de Consulta Requeridos por el Controlador ---
 
     @Override
     @Transactional(readOnly = true)
@@ -70,9 +95,20 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<Ticket> findAllTicketsByPlaca(String placa) {
+        // CORREGIDO: Busca el vehículo y luego usa el método findByVehiculo (ahora existente).
+        return vehiculoService.findByPlaca(placa)
+                .map(ticketRepository::findByVehiculo)
+                .orElseGet(List::of);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<Ticket> findTicketsCerradosEntreFechas(LocalDateTime inicio, LocalDateTime fin) {
         return ticketRepository.findByFechaSalidaBetween(inicio, fin);
     }
+
+    // --- Lógica Auxiliar de Reglas de Negocio y Mapeo (Sin cambios) ---
 
     void validarTicketNoActivo(Vehiculo vehiculo) {
         Optional<Ticket> ticketActivoOpt = ticketRepository.findByVehiculoAndFechaSalidaIsNull(vehiculo);
@@ -111,30 +147,18 @@ public class TicketServiceImpl implements TicketService {
         return ticketRepository.save(nuevoTicket);
     }
 
-    Ticket obtenerTicketActivoOrThrow(Long idTicket) {
-        Ticket ticket = ticketRepository.findById(idTicket)
-                .orElseThrow(() -> new RecursoNoEncontradoException(
-                        "ticket.error.ticket.noEncontrado", idTicket
-                ));
-
-        if (ticket.getFechaSalida() != null) {
-            throw new ReglaNegocioException(
-                    "ticket.error.ticket.yaCerrado", idTicket
-            );
-        }
-        return ticket;
-    }
-
     long calcularMinutosEstacionamiento(LocalDateTime fechaIngreso, LocalDateTime fechaSalida) {
         if (fechaSalida.isBefore(fechaIngreso)) {
             fechaSalida = fechaIngreso;
         }
+
         long minutosExactos = ChronoUnit.MINUTES.between(fechaIngreso, fechaSalida);
         Duration duracionCompleta = Duration.between(fechaIngreso, fechaSalida);
         if (duracionCompleta.getSeconds() % 60 > 0 || duracionCompleta.getNano() > 0) {
             minutosExactos++;
         }
-        return Math.max(0, minutosExactos);
+
+        return Math.max(MINUTOS_COBRO_MINIMO, minutosExactos);
     }
 
     double calcularValorTotal(Tarifa tarifa, long minutos) {
