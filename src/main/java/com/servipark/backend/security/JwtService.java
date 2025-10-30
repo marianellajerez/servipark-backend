@@ -8,11 +8,14 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-
+import org.springframework.security.core.GrantedAuthority;
+import com.servipark.backend.model.Usuario;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Optional;
+import java.util.stream.Stream;
 import java.security.Key;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.function.Function;
 
 @Service
@@ -24,14 +27,41 @@ public class JwtService {
     @Value("${jwt.expiration}")
     private long EXPIRATION_TIME;
 
+    /**
+     * Este es el metodo que usa tu AuthController.
+     * Lo modificamos para que cree los 'claims' (rol y nombre).
+     */
     public String generateToken(UserDetails userDetails) {
-        return generateToken(new HashMap<>(), userDetails);
+
+        Map<String, Object> claims = new HashMap<>();
+
+        Stream<String> roleStream = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority);
+
+        Optional<String> optionalRole = roleStream.findFirst();
+
+        String role = optionalRole
+                .map(r -> r.startsWith("ROLE_") ? r.substring(5) : r)
+                .orElse("ROL_DESCONOCIDO");
+
+        claims.put("role", role);
+
+        if (userDetails instanceof Usuario) {
+            String nombre = ((Usuario) userDetails).getNombre();
+            claims.put("name", nombre);
+        }
+
+        return generateToken(claims, userDetails);
     }
 
+    /**
+     * Este metodo NO necesita cambios.
+     * Recibirá los claims (rol y nombre) y los pondrá en el token.
+     */
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
         return Jwts.builder()
                 .setClaims(extraClaims)
-                .setSubject(userDetails.getUsername()) // El "username" (correo)
+                .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
