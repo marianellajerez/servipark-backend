@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
@@ -57,7 +58,7 @@ public class TicketServiceImpl implements TicketService {
         Vehiculo vehiculo = vehiculoService.findOrCreateVehiculo(placa, idTipoVehiculo);
         validarTicketNoActivo(vehiculo);
         Usuario usuario = obtenerUsuarioActivoOrThrow(idUsuario);
-        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime ahora = LocalDateTime.now(ZoneOffset.UTC);
         Tarifa tarifa = obtenerTarifaVigenteOrThrow(vehiculo, ahora);
         return crearYGuardarTicketIngreso(vehiculo, usuario, tarifa, ahora);
     }
@@ -77,7 +78,7 @@ public class TicketServiceImpl implements TicketService {
                         "ticket.error.ticket.noActivoParaPlaca", placa
                 ));
 
-        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime ahora = LocalDateTime.now(ZoneOffset.UTC);
         long minutos = calcularMinutosEstacionamiento(ticket.getFechaIngreso(), ahora);
         double valorTotal = calcularValorTotal(ticket.getTarifa(), minutos);
 
