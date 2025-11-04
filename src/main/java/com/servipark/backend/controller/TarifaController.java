@@ -13,8 +13,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.format.annotation.DateTimeFormat; // <-- 1. AÑADIR IMPORTACIÓN
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset; // <-- IMPORTACIÓN NECESARIA
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -42,8 +44,6 @@ public class TarifaController {
 
     /**
      * [GET] Obtiene todas las tarifas históricas y vigentes.
-     * Acceso: Empleado o Admin.
-     * @return Lista de TarifaResponseDTO.
      */
     @GetMapping
     public ResponseEntity<List<TarifaResponseDTO>> getAllTarifas() {
@@ -55,9 +55,6 @@ public class TarifaController {
 
     /**
      * [GET] Obtiene una tarifa específica por su ID.
-     * Acceso: Empleado o Admin.
-     * @param id ID de la tarifa.
-     * @return TarifaResponseDTO si existe, o 404 Not Found.
      */
     @GetMapping("/{id}")
     public ResponseEntity<TarifaResponseDTO> getTarifaById(@PathVariable Long id) {
@@ -69,17 +66,14 @@ public class TarifaController {
 
     /**
      * [GET] Obtiene la tarifa VIGENTE para un tipo de vehículo en una fecha específica (o actual).
-     * Acceso: Empleado (Para cálculos en la caja/entrada).
-     * @param idTipoVehiculo ID del tipo de vehículo.
-     * @param fecha (Opcional) Fecha y hora para la cual se consulta la tarifa.
-     * @return TarifaResponseDTO de la tarifa vigente.
      */
     @GetMapping("/vigente/{idTipoVehiculo}")
     public ResponseEntity<TarifaResponseDTO> getTarifaVigente(
             @PathVariable Long idTipoVehiculo,
-            @RequestParam(name = "fecha", required = false) Optional<LocalDateTime> fecha) {
+            // --- 2. AÑADIR ANOTACIÓN DE FORMATO ---
+            @RequestParam(name = "fecha", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fecha) {
 
-        LocalDateTime fechaConsulta = fecha.orElse(LocalDateTime.now());
+        LocalDateTime fechaConsulta = (fecha != null) ? fecha : LocalDateTime.now(ZoneOffset.UTC);
 
         return tarifaService.findTarifaVigente(idTipoVehiculo, fechaConsulta)
                 .map(this::mapToResponse)
@@ -88,15 +82,22 @@ public class TarifaController {
     }
 
     /**
+     * [GET] Obtiene el historial de tarifas para un solo Tipo de Vehículo.
+     */
+    @GetMapping("/historial/{idTipoVehiculo}")
+    public ResponseEntity<List<TarifaResponseDTO>> getHistorialTarifasPorTipo(
+            @PathVariable Long idTipoVehiculo) {
+
+        List<TarifaResponseDTO> responseList = tarifaService.findTarifasByTipoVehiculo(idTipoVehiculo)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(responseList);
+    }
+
+    /**
      * [POST] Crea una nueva tarifa para un TipoVehiculo.
-     * La lógica de negocio establece la fechaInicio a LocalDateTime.now() y cierra
-     * automáticamente la tarifa anterior.
-     *
-     * Regla de Negocio: Las tarifas no se modifican ni eliminan; se reemplazan.
-     * Acceso: ADMIN.
-     *
-     * @param createDTO Los datos de la nueva tarifa (solo valor y tipoVehiculoId).
-     * @return TarifaResponseDTO del nuevo registro.
      */
     @PostMapping
     public ResponseEntity<?> createTarifa(@Valid @RequestBody TarifaCreateDTO createDTO) {

@@ -101,4 +101,18 @@ public class TarifaServiceImpl implements TarifaService {
                 ));
         return tarifaRepository.findTarifaVigente(tipoVehiculo, fecha);
     }
+
+    /**
+     * Busca el historial de tarifas para un tipo de vehículo específico.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Tarifa> findTarifasByTipoVehiculo(Long idTipoVehiculo) {
+        TipoVehiculo tipoVehiculo = tipoVehiculoRepository.findById(idTipoVehiculo)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "tarifa.error.tipoVehiculo.noEncontrado", idTipoVehiculo
+                ));
+
+        return tarifaRepository.findByTipoVehiculoOrderByFechaInicioDesc(tipoVehiculo);
+    }
 }

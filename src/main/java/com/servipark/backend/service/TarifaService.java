@@ -27,4 +27,6 @@ public interface TarifaService {
      */
     Optional<Tarifa> findTarifaVigente(Long idTipoVehiculo, LocalDateTime fecha);
 
+    List<Tarifa> findTarifasByTipoVehiculo(Long idTipoVehiculo);
+
 }

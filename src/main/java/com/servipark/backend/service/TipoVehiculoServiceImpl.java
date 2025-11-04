@@ -1,5 +1,7 @@
 package com.servipark.backend.service;
 
+import com.servipark.backend.dto.TarifaCreateDTO;
+import com.servipark.backend.dto.TipoVehiculoConTarifaCreateDTO;
 import com.servipark.backend.model.Tarifa;
 import com.servipark.backend.model.TipoVehiculo;
 import com.servipark.backend.repository.TarifaRepository;
@@ -9,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,18 +20,21 @@ public class TipoVehiculoServiceImpl implements TipoVehiculoService {
 
     private final TipoVehiculoRepository tipoVehiculoRepository;
     private final TarifaRepository tarifaRepository;
+    private final TarifaService tarifaService;
 
     @Autowired
     public TipoVehiculoServiceImpl(TipoVehiculoRepository tipoVehiculoRepository,
-                                   TarifaRepository tarifaRepository) {
+                                   TarifaRepository tarifaRepository,
+                                   TarifaService tarifaService) {
         this.tipoVehiculoRepository = tipoVehiculoRepository;
         this.tarifaRepository = tarifaRepository;
+        this.tarifaService = tarifaService;
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<TipoVehiculo> findAll() {
-        return tipoVehiculoRepository.findByActivoTrue();
+        return tipoVehiculoRepository.findAll();
     }
 
     @Override
@@ -47,6 +53,24 @@ public class TipoVehiculoServiceImpl implements TipoVehiculoService {
         }
         tipoVehiculo.setActivo(true);
         return tipoVehiculoRepository.save(tipoVehiculo);
+    }
+
+    @Override
+    @Transactional
+    public TipoVehiculo saveWithInitialTarifa(TipoVehiculoConTarifaCreateDTO createDTO) {
+        TipoVehiculo tipoVehiculo = new TipoVehiculo();
+        tipoVehiculo.setNombre(createDTO.nombre());
+
+        TipoVehiculo savedTipoVehiculo = this.save(tipoVehiculo);
+
+        TarifaCreateDTO tarifaDTO = new TarifaCreateDTO(
+                createDTO.valorPorMinuto(),
+                savedTipoVehiculo.getIdTipoVehiculo()
+        );
+
+        tarifaService.save(tarifaDTO);
+
+        return savedTipoVehiculo;
     }
 
     @Override
@@ -74,7 +98,7 @@ public class TipoVehiculoServiceImpl implements TipoVehiculoService {
             Optional<Tarifa> tarifaActivaOpt = tarifaRepository.findByTipoVehiculoAndFechaFinIsNull(tipo);
             if (tarifaActivaOpt.isPresent()) {
                 Tarifa tarifaActiva = tarifaActivaOpt.get();
-                tarifaActiva.setFechaFin(LocalDateTime.now());
+                tarifaActiva.setFechaFin(LocalDateTime.now(ZoneOffset.UTC));
                 tarifaRepository.save(tarifaActiva);
             }
 
@@ -83,6 +107,17 @@ public class TipoVehiculoServiceImpl implements TipoVehiculoService {
             return true;
         }).orElse(false);
     }
+
+    @Override
+    @Transactional
+    public boolean activateById(Long id) {
+        return tipoVehiculoRepository.findById(id).map(tipo -> {
+            tipo.setActivo(true);
+            tipoVehiculoRepository.save(tipo);
+            return true;
+        }).orElse(false);
+    }
+
 
     @Override
     @Transactional(readOnly = true)

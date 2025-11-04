@@ -29,6 +29,17 @@ public class SecurityConfig {
     private final AuthenticationProvider authenticationProvider;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
+    // --- 1. LISTA BLANCA DE SWAGGER ---
+    // (Incluimos tus rutas personalizadas Y las rutas por defecto)
+    private static final String[] SWAGGER_WHITELIST = {
+            "/swagger-ui.html",
+            "/swagger-ui/**",
+            "/api-docs",
+            "/api-docs/**",
+            "/v3/api-docs",
+            "/v3/api-docs/**"
+    };
+
     public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter,
                           AuthenticationProvider authenticationProvider,
                           JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint) {
@@ -43,13 +54,17 @@ public class SecurityConfig {
                 .cors(withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+                        // --- 2. REGLAS PÚBLICAS (PERMIT ALL) ---
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers(SWAGGER_WHITELIST).permitAll() // <-- APLICAMOS LA LISTA
 
+                        // --- REGLAS DE ADMIN ---
                         .requestMatchers(HttpMethod.POST, "/api/v1/usuarios/**").hasAuthority("ADMINISTRADOR")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/usuarios/**").hasAuthority("ADMINISTRADOR")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/usuarios/**").hasAuthority("ADMINISTRADOR")
 
+                        // --- REGLA FINAL ---
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess
@@ -67,13 +82,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-
         configuration.setAllowedOrigins(Arrays.asList("*"));
-
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-
         configuration.setAllowedHeaders(Arrays.asList("*"));
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

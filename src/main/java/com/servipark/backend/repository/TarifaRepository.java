@@ -28,4 +28,9 @@ public interface TarifaRepository extends JpaRepository<Tarifa, Long> {
 
     Optional<Tarifa> findByTipoVehiculoAndFechaFinIsNull(TipoVehiculo tipoVehiculo);
 
+    /**
+     * Busca todas las tarifas (históricas y vigentes) para un tipo de vehículo,
+     * ordenadas por fecha de inicio descendente (la más nueva primero).
+     */
+    List<Tarifa> findByTipoVehiculoOrderByFechaInicioDesc(TipoVehiculo tipoVehiculo);
 }

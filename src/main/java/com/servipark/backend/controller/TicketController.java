@@ -11,11 +11,13 @@ import com.servipark.backend.exception.ConflictoDeDatosException;
 import com.servipark.backend.exception.RecursoNoEncontradoException;
 import com.servipark.backend.exception.ReglaNegocioException;
 
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.format.annotation.DateTimeFormat; // <-- 1. AÑADIR IMPORTACIÓN
 
 import java.security.Principal;
 import java.time.LocalDateTime;
@@ -30,6 +32,7 @@ public class TicketController {
     private final TicketService ticketService;
     private final UsuarioService usuarioService;
 
+    // (El método mapToResponse no cambia)
     private TicketResponseDTO mapToResponse(Ticket ticket) {
         return new TicketResponseDTO(
                 ticket.getIdTicket(),
@@ -46,9 +49,7 @@ public class TicketController {
         );
     }
 
-    /**
-     * Extrae el ID (Usuario.id) del usuario autenticado del token JWT.
-     */
+    // (El método extractUserIdFromPrincipal no cambia)
     private Long extractUserIdFromPrincipal(Principal principal) {
         String correoUsuario = principal.getName();
         return usuarioService.findByCorreo(correoUsuario)
@@ -58,15 +59,10 @@ public class TicketController {
                 ));
     }
 
-    // --- Endpoints de Transacciones de Parqueo ---
-
-    /**
-     * [POST] Registra el ingreso de un vehículo.
-     */
     @PostMapping("/ingreso")
     public ResponseEntity<?> registrarIngreso(
             @Valid @RequestBody TicketIngresoCreateDTO ingresoDTO,
-            Principal principal) {
+            @Parameter(hidden = true) Principal principal) {
         try {
             Long idUsuario = extractUserIdFromPrincipal(principal);
 
@@ -88,13 +84,10 @@ public class TicketController {
         }
     }
 
-    /**
-     * [PUT] Registra la salida de un vehículo usando la placa y calcula el valor total.
-     */
     @PutMapping("/salida")
     public ResponseEntity<?> registrarSalida(
             @Valid @RequestBody TicketSalidaCreateDTO salidaDTO,
-            Principal principal) {
+            @Parameter(hidden = true) Principal principal) {
 
         try {
             Long idUsuario = extractUserIdFromPrincipal(principal);
@@ -111,9 +104,6 @@ public class TicketController {
         }
     }
 
-    /**
-     * [GET] Busca el ticket ACTIVO (sin fechaSalida) por la placa. (Requerimiento: Ticket Activo)
-     */
     @GetMapping("/activo/{placa}")
     public ResponseEntity<TicketResponseDTO> getTicketActivoPorPlaca(@PathVariable String placa) {
         return ticketService.findActiveTicketByPlaca(placa)
@@ -122,11 +112,6 @@ public class TicketController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    /**
-     * [GET] Obtiene todos los tickets (cerrados y activo si existe) para una placa específica.
-     * (Requerimiento: Todos los tickets para una placa)
-     * * NOTA: Requiere una implementación en TicketService para buscar List<Ticket> por Placa.
-     */
     @GetMapping("/historial/{placa}")
     public ResponseEntity<List<TicketResponseDTO>> getHistorialTicketsPorPlaca(@PathVariable String placa) {
         List<Ticket> tickets = ticketService.findAllTicketsByPlaca(placa);
@@ -143,8 +128,9 @@ public class TicketController {
      */
     @GetMapping("/cerrados")
     public ResponseEntity<List<TicketResponseDTO>> getTicketsCerrados(
-            @RequestParam("fechaInicio") LocalDateTime fechaInicio,
-            @RequestParam("fechaFin") LocalDateTime fechaFin) {
+            // --- 2. AÑADIR ANOTACIÓN DE FORMATO ---
+            @RequestParam("fechaInicio") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaInicio,
+            @RequestParam("fechaFin") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin) {
 
         List<TicketResponseDTO> responseList = ticketService.findTicketsCerradosEntreFechas(fechaInicio, fechaFin).stream()
                 .map(this::mapToResponse)
